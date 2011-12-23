@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=7" />
+<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7" />
+  
+<title>Editor</title>
+  
+<link rel="stylesheet" href="css/content.css" type="text/css" />
+<link rel="stylesheet" href="css/ui.css" type="text/css" />
+<link type="text/css" href="/apps/bar/configuration/css/bar.css" type="text/css" rel="stylesheet"/>
+<link rel="stylesheet" type="text/css" media="all" href="/apps/bitmix/configuration/css/lime-ui-dialog.css" />
+<link type="text/css" href="/apps/bitfinder/configuration/css/site.css" type="text/css" rel="stylesheet"/>
+
+<script type="text/javascript" src="/!lime/root/library/limebits/latest/axis/AXIS.combined.js" 
+  extensions="Modules+SHA1+History+Cookies+Errors" 
+  arguments="CSSReset" 
+></script>	
+		
+<!--[if IE]>
+	<script type="text/javascript" src="scripts/excanvas-compressed.js"></script>		
+<![endif]-->
+	
+<script type="text/javascript" src="scripts/mootools-1.2-core.js"></script>
+<script type="text/javascript" src="scripts/mootools-1.2-more.js"></script>	
+<script type="text/javascript" src="scripts/mocha.js"></script>
+<script type="text/javascript" src="scripts/TreeControl.js"></script>
+<script type="text/javascript" src="scripts/TreeController.js"></script>
+<script type="text/javascript" src="scripts/ContextMenu.js"></script>
+<script type="text/javascript" src="scripts/init.js"></script>
+
+<script type="text/javascript">
+// Mootools overrides the native JSON support... so give it back
+if( !JSON.stringify )
+{
+    JSON.stringify = JSON.encode;
+}
+  jQuery().ready(function() {
+    window.limebar = new LimeBar(jQuery('#limeBar'), {
+      bit: window.location.hash.replace('#',''),
+      showPageTabs: true,
+      mode: 'source',
+      messageHandler: function(o) {
+        switch (o.cmd) {
+        case 'refreshHeight':
+          $AXIS.Editor.setHeaderHeight(this.limebar.getBarHeight(false));
+          break;
+        case 'refresh':
+          var newBit = AXIS.Util.bit.bitInfo(o.cmdArgs);
+          location.replace(location.href.split('#')[0] + '#' + newBit.tld_folder);
+          location.reload();
+          break;
+        }
+      }
+    });
+  });  
+  
+  AXIS.Modules.load({
+    provider: 'local',
+    module:   'JSBeautify'
+  });
+
+</script>
+
+</head>
+<body>
+
+<div id="desktop">
+  
+<div id="desktopHeader">
+  <div id="limeBar"></div>
+</div>
+
+<div id="pageWrapper"></div>
+
+</div><!-- desktop end -->
+
+<!--
+  Add context html here.  See ContextMenu object def. in mocha-init.js
+-->
+
+<ul id="contextmenu">
+  <li><a id="ctxt_delete" class="delete">Delete</a></li>
+	<li><a id="ctxt_rename" class="rename">Rename</a></li>
+	<li><a id="ctxt_duplicate" class="duplicate">Duplicate</a></li>
+  <li><a id="ctxt_cut" class="cut">Cut</a></li>
+  <li><a id="ctxt_copy" class="copy">Copy</a></li>
+  <li><a id="ctxt_paste" class="paste">Paste</a></li>
+  <li><a id="ctxt_trash" class="trash">Trash</a></li>
+  <li><a id="ctxt_empty" class="empty">Empty</a></li>
+  <li><a id="ctxt_restore" class="restore">Restore</a></li>
+  <li><a id="ctxt_refresh" class="refresh">Refresh</a></li>
+	<li class="separator"><a id="ctxt_folder_new" class="folder_new">New Folder</a></li>
+	<li><a id="ctxt_file_new" class="file_new">New File</a></li>
+	<li><a id="ctxt_upload" class="upload">Upload Files</a></li>
+</ul>
+
+</body>
+</html>

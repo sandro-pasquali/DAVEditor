@@ -1,0 +1,238 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=7" />
+  <meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7" />
+	<title></title>
+
+  <script type="text/javascript" src="/!lime/root/library/limebits/latest/axis/AXIS.combined.js" 
+    arguments="CSSReset" 
+  ></script>	
+
+	<script language="Javascript" type="text/javascript" src="edit_area_loader.js"></script>
+	
+	<script language="Javascript" type="text/javascript">	
+
+		editAreaLoader.init({
+			id:                     "editor_target",	
+			font_size:              "10",
+			font_family:            "verdana, monospace",
+			start_highlight:        false,
+			word_wrap:              true,
+			allow_toggle:           false,
+			min_height:             100,
+			language:               "en",
+			syntax:                 "html",	
+			replace_tab_by_spaces:  2,
+			max_undo:               20,
+			
+			/*
+			toolbar:                "undo, redo, |,search, go_to_line,  charmap,|, select_font, |, syntax_selection, |, change_smooth_selection, highlight, reset_highlight, word_wrap, |, save",
+			*/
+			
+			toolbar:                "undo, redo, search, go_to_line, |, select_font, |, highlight, word_wrap, |, save",
+			
+			syntax_selection_allow:     "css,html,js,xml,sql",
+			plugins:                    "charmap",
+			charmap_default:            "Latin Extended-A",
+			load_callback:              "onFileLoad",
+			save_callback:              "onSaveClicked",
+			EA_load_callback:           "editAreaLoaded",
+			EA_file_switch_on_callback: "tabSelect",
+			EA_file_close_callback:     "tabClose",
+			is_editable:                false,
+			
+			/**
+			 * Opera buggers...
+			 */
+			//is_multi_files:           AXIS.isOpera ? false : true,
+			is_multi_files:             true,
+			
+			//fullscreen:               (AXIS.isIE || AXIS.isSafari) ? false : true,
+			fullscreen:                 true,
+			show_line_colors:           false
+		});
+		
+		
+		/**
+		 * Fired when save requested.  NOTE: We are checking etag, to ensure
+		 * that a save will not be executed if the file has been changed between
+		 * the point at which it was opened and the save point (lost update problem).
+		 * Of course this means that if the save is successful, we have to
+		 * update the etag value of the local resource object.
+		 */
+		var onSaveClicked = function(editor_id, content){
+
+		  var curInfo   = editAreaLoader.getCurrentFile(editor_id);
+		  var fileUrl   = curInfo.id;
+	    var fileBody  = curInfo.text;
+	    var res       = top.$AXIS.Editor.resourceByUrl(curInfo.id);
+	    
+			AXIS.WebDAV.PUT({
+			  url:      fileUrl,
+			  body:     fileBody,
+			  headers:  {
+          'If-Match': res.props.getetag
+        },
+			  asynch: true,
+			  onSuccess: function(r) {
+			    
+			    /**
+			     * Indicate that the current code in the editor view is
+			     * consistent with the server content.
+			     */
+			    editAreaLoader.setFileEditedMode(editor_id, fileUrl, false);
+			    
+			    /**
+			     * Update local resource object etag.
+			     */
+			    res.props.getetag = r.getResponseHeader('etag');
+			  },
+			  
+			  onFailure: function(r) {
+			    top.MochaUI.notification("Fail saved. The file might have been changed by someone else, or you are not logged in, or don't have permission to alter this file.");  
+			  }
+			});
+		}
+
+		/**
+		 * Fires when a tab is closed. Mainly setting resource info.
+		 *
+		 * @see #tabSelect
+		 */
+		var tabClose = function(inf)
+		  {
+		    var a,c;
+		    
+		    /**
+		     * Trying to close a tab that has been edited? Confirm with user.
+		     */
+		    // if(inf.edited === true)
+
+		    var ae  = top.$AXIS.Editor;
+
+		    /**
+		     * NOTE: be sure to do this AFTER updating the hash. If this value
+		     * is false when the hash is updated, the file will be reloaded.
+		     */
+		    ae.resourceByUrl(inf.id).openInEditor = false;
+        
+		    /**
+		     * Now need to determine if there are any other tabs open.  If there aren't,
+		     * need to clear the current file info from hash & editor titlebar.  Oddly,
+		     * #getAllFiles isn't empty, even if there are no tabs available.  Not sure
+		     * what the point of the method is given that it isn't accurate, but at least
+		     * it cuts down the amount of work we have to do: just check if all the 
+		     * resources listed by a call to #getAllFiles have all had their #openInEditor 
+		     * attribute set to false.
+		     */
+		    a = editAreaLoader.getAllFiles('editor_target');
+		    for(c in a)
+		      {
+		        if(ae.resourceByUrl(a[c].id).openInEditor === true)
+		          {
+		            ae.tabClosed.fire(inf.id);
+		            return;
+		          } 
+		      }
+		    
+		    /**
+		     * If we got here, no more files. Clear titlebar, return hash to original, 
+		     * so that a bookmark from here would load the original url.
+		     */
+		    ae.setEditorTitlebar(); 
+		    ae.updateFileHash(ae.requestedBitPath || ae.requestUrl);   
+		    ae.tabClosed.fire(inf.id); 
+		  };
+		
+		/**
+		 * Fires whenever a tab is opened, or selected from existing tabs (moved to).  
+		 * Such as whenever a tab is *first* opened, via the editor.openFile() method,
+		 * which itself is fired by the #openFile method found in top.$AXIS.Editor.
+		 *
+		 * @href ../init.js
+		 */
+		var tabSelect = function(inf) 
+		  {
+		    var ae        = top.$AXIS.Editor;
+		    
+		    /**
+		     * Get the resource object for this url.  This will have been set
+		     * when the tree was built for the containing folder.
+		     */
+		    var res       = ae.resourceByUrl(inf.id);
+
+		    /**
+		     * Note that the ACE for this user on this resource is the key
+		     * determiner of whether the file is editable.
+		     */
+		    var editable  = res.Cups.hasPrivilege('write');
+		    
+		    var rP        = inf.id.match(/\/home\/[^\/]*\/bits\/[^\/]*\//);
+		    var nP        = rP ? rP[0] : '';
+		            
+        /**
+         * Set proper edit mode for file in editor.
+         */              
+        editAreaLoader.execCommand('editor_target', 'set_editable', editable);
+
+		    /**
+		     * This is the text that will appear in the editor bar.
+		     */
+		    var tText     = inf.id.replace(nP,'') + (editable ? '' : ' (Read-Only)');
+        ae.setEditorTitlebar(tText);   
+        
+        /**
+         * Keep highlighting off for very large files.
+         */
+        if(parseInt(res.props.getcontentlength) < 61440 && res.openInEditor === false)
+          {
+            editAreaLoader.execCommand('editor_target', 'change_highlight', true);  
+          }
+        
+        /**
+         * Mark that is open in editor. Note that this function is called both when 
+         * a tab is first opened AND when it is selected (moved to).  We only want
+         * to fire the tabOpened event if this is the first load, and the tabSelected
+         * when a tab has been moved to from another tab.
+         * 
+         * @see #tabClose
+         */
+        if(res.openInEditor === false)
+          {
+            res.openInEditor = true;
+            ae.tabOpened.fire(inf.id);
+          }
+        else
+          {
+            ae.tabSelected.fire(inf.id);
+          }
+          
+        /**
+         * Update hash.
+         */
+        ae.updateFileHash(inf.id);
+		  }
+		
+		/**
+		 * Fires when the full EditArea interface has loaded and rendered, which should
+		 * happen only once.
+		 */
+		var editAreaLoaded = function(id){
+		  var te = top.$AXIS.Editor;
+			te.editorRef = editAreaLoader;	
+			te.editorReady.fire();
+		}
+		
+
+	</script>
+</head>
+<body>
+
+		<textarea id="editor_target" style="height: 100%; width: 100%;" name="editor_target">
+		</textarea>
+
+
+</body>
+</html>
